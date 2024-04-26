@@ -1,0 +1,56 @@
+name: Check Godot Version Bump
+
+on:
+  workflow_call:
+    inputs: 
+      branch_name:
+        required: true
+        type: string
+      version_file_path:
+        required: true
+        type: string
+
+env:
+  OLD_VERSION_FILE: ./old/${{ inputs.version_file_path }}
+  CURRENT_VERSION_FILE: ./current/${{ inputs.version_file_path }}
+  VERSION_REGEX: config\/version=\"\K[0-9.\-A-z]*
+
+jobs:
+  check-godot-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        name: 'Checkout last version'
+        with:
+          ref: ${{ inputs.branch_name }}
+          path: old
+          sparse-checkout: ${{ inputs.version_file_path }}
+
+      - uses: actions/checkout@v4
+        name: 'Checkout current branch'
+        with:
+          path: current
+          sparse-checkout: ${{ inputs.version_file_path }}
+
+      - id: old-version
+        name: 'Get last version'
+        uses: CapsCollective/version-actions/extract-version@v1.0
+        with:
+          version-file: ${{ env.OLD_VERSION_FILE }}
+          version-regex: ${{ env.VERSION_REGEX }}
+
+      - id: current-version
+        name: 'Get current version'
+        uses: CapsCollective/version-actions/extract-version@v1.0
+        with:
+          version-file: ${{ env.CURRENT_VERSION_FILE }}
+          version-regex: ${{ env.VERSION_REGEX }}
+
+      - name: print result
+        run: echo "${{ steps.old-version.outputs.version-string }} -> ${{ steps.current-version.outputs.version-string }}"
+
+      - name: Check semantic version bump
+        uses: CapsCollective/version-actions/check-version-bump@v1.0
+        with:
+          new-version: ${{ steps.current-version.outputs.version-string }}
+          old-version: ${{ steps.old-version.outputs.version-string }}
